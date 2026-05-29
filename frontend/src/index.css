@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #374151 transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: #374151;
+    border-radius: 3px;
+  }
+}
+
+@layer utilities {
+  .chat-prose {
+    @apply prose prose-invert prose-sm max-w-none;
+    @apply prose-headings:font-semibold prose-headings:text-gray-100;
+    @apply prose-p:text-gray-200 prose-p:leading-relaxed;
+    @apply prose-code:bg-gray-800 prose-code:text-indigo-300 prose-code:px-1 prose-code:rounded prose-code:text-xs;
+    @apply prose-pre:bg-gray-900 prose-pre:border prose-pre:border-gray-700;
+    @apply prose-strong:text-white;
+    @apply prose-li:text-gray-200;
+    @apply prose-blockquote:border-indigo-500 prose-blockquote:text-gray-300;
+    @apply prose-table:text-sm;
+    @apply prose-th:text-gray-300 prose-td:text-gray-300;
+    @apply prose-a:text-indigo-400;
+  }
+}

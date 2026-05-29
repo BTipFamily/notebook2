@@ -1,0 +1,29 @@
+# Copy this file to .env and fill in your values
+
+# Security - CHANGE THIS IN PRODUCTION
+SECRET_KEY=change-me-to-a-random-256-bit-hex-string
+ACCESS_TOKEN_EXPIRE_MINUTES=1440
+
+# Anthropic API
+ANTHROPIC_API_KEY=sk-ant-...
+
+# AI Model
+AI_MODEL=claude-sonnet-4-6
+
+# Database (SQLite for dev, PostgreSQL for prod)
+DATABASE_URL=sqlite:///./notebook.db
+# DATABASE_URL=postgresql://user:password@localhost:5432/notebook
+
+# File Storage
+UPLOAD_DIR=./uploads
+MAX_FILE_SIZE_MB=50
+
+# Vector Database
+CHROMA_PERSIST_DIR=./chroma_db
+
+# CORS - comma-separated origins
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# Optional: Default admin user (created on first run)
+ADMIN_EMAIL=admin@company.com
+ADMIN_PASSWORD=changeme123
