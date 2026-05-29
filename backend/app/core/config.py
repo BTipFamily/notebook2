@@ -25,6 +25,15 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     AI_MODEL: str = "claude-sonnet-4-6"
 
+    # AI provider: "anthropic" or "metiq"
+    AI_PROVIDER: str = "anthropic"
+
+    # MetIQ (MetLife LLM) settings
+    METIQ_API_KEY: str = ""
+    METIQ_USE_CASE_ID: str = ""
+    METIQ_ENDPOINT: str = "https://int.internal2.apis.metlife.com/channel/metiq/webapi"
+    OCP_APIM_SUBSCRIPTION_KEY: str = ""
+
     DATABASE_URL: str = "sqlite:///./notebook.db"
 
     UPLOAD_DIR: str = "./uploads"

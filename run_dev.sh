@@ -13,7 +13,8 @@ echo ""
 # Backend
 (
   cd backend
-  source .venv/bin/activate 2>/dev/null || true
+  # Support both Windows-native (.venv/Scripts) and Unix/macOS (.venv/bin) venvs
+  source .venv/Scripts/activate 2>/dev/null || source .venv/bin/activate 2>/dev/null || true
   python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ) &
 

@@ -69,11 +69,13 @@ from app.modules.auth.router import router as auth_router
 from app.modules.workspaces.router import router as workspace_router
 from app.modules.documents.router import router as document_router
 from app.modules.knowledge.router import router as knowledge_router
+from app.modules.settings.router import router as settings_router
 
 app.include_router(auth_router, prefix="/api")
 app.include_router(workspace_router, prefix="/api")
 app.include_router(document_router, prefix="/api")
 app.include_router(knowledge_router, prefix="/api")
+app.include_router(settings_router, prefix="/api")
 
 
 @app.get("/api/health")

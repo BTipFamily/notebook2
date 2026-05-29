@@ -5,6 +5,7 @@ import { Plus, LogOut, BookOpen, ChevronRight, Users, Loader2 } from 'lucide-rea
 import { listWorkspaces } from '../../api/workspaces'
 import { useAuthStore } from '../../stores/authStore'
 import CreateWorkspaceModal from '../workspace/CreateWorkspaceModal'
+import LLMProviderSelector from '../settings/LLMProviderSelector'
 import clsx from 'clsx'
 
 export default function Sidebar() {
@@ -90,6 +91,14 @@ export default function Sidebar() {
             </nav>
           )}
         </div>
+
+        {/* AI Provider selector (admin only) */}
+        {user?.role === 'admin' && (
+          <div className="px-2 pb-1 border-t border-gray-800 pt-2">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider px-2.5 mb-1">AI Model</p>
+            <LLMProviderSelector />
+          </div>
+        )}
 
         {/* Admin link */}
         {user?.role === 'admin' && (

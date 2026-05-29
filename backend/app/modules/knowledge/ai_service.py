@@ -1,11 +1,12 @@
-"""Claude-powered RAG engine with prompt caching."""
+"""RAG engine supporting Anthropic Claude and MetLife MetIQ LLMs."""
 
-import json
+import asyncio
 import logging
 import re
 from typing import List, Dict, Any, Optional
 
 import anthropic
+import requests as _requests
 
 from app.core.config import settings
 
@@ -79,13 +80,122 @@ def _get_client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 
+def _get_metiq_client():
+    """Build and return a MetIQ LangChain client using settings."""
+    try:
+        from langchain_metiq import MetIQ, MetIQConfig
+    except ImportError as exc:
+        raise RuntimeError(
+            "langchain-metiq is not installed. "
+            "Run: pip install langchain-metiq"
+        ) from exc
+    session = _requests.Session()
+    session.headers.update({
+        "api-key": settings.METIQ_API_KEY,
+        "Ocp-Apim-Subscription-Key": settings.OCP_APIM_SUBSCRIPTION_KEY,
+        "Cache-Control": "no-cache",
+        "Content-Type": "application/json",
+    })
+    config = MetIQConfig(
+        use_case_id=settings.METIQ_USE_CASE_ID,
+        client_id="innovation_api",
+        endpoint=settings.METIQ_ENDPOINT,
+        subscription_key=settings.OCP_APIM_SUBSCRIPTION_KEY,
+        session=session,
+    )
+    return MetIQ(config=config)
+
+
+def _call_metiq(prompt: str) -> str:
+    """Send a plain-text prompt to MetIQ and return the response string."""
+    metiq = _get_metiq_client()
+    response = metiq.chat(prompt)
+    if hasattr(response, "generations"):
+        return response.generations[0].message.content
+    return str(response)
+
+
+async def _chat_metiq(
+    query: str,
+    workspace_name: str,
+    chunks: List[Dict],
+    history: List[Dict[str, str]],
+) -> Dict[str, Any]:
+    """MetIQ-backed RAG chat — formats context + history into a single prompt."""
+    context = _build_context(chunks)
+
+    history_text = ""
+    for msg in history[-8:]:
+        role = "User" if msg["role"] == "user" else "Assistant"
+        history_text += f"{role}: {msg['content']}\n"
+
+    prompt = (
+        f"{SYSTEM_PROMPT}\n\n"
+        + (f"Previous conversation:\n{history_text}\n" if history_text else "")
+        + f"Workspace: {workspace_name}\n\n"
+        f"<context>\n{context}\n</context>\n\n"
+        f"Question: {query}"
+    )
+
+    content = await asyncio.to_thread(_call_metiq, prompt)
+    citations = _extract_citations(content, chunks)
+    return {
+        "content": content,
+        "citations": citations,
+        "input_tokens": 0,
+        "output_tokens": 0,
+    }
+
+
+async def _generate_quick_summary_metiq(text: str, doc_name: str) -> str:
+    """MetIQ-backed document summary."""
+    prompt = (
+        f"Summarize this document in 2-3 sentences.\n"
+        f"Document: {doc_name}\n\nContent:\n{text[:4000]}"
+    )
+    return await asyncio.to_thread(_call_metiq, prompt)
+
+
+async def _generate_report_metiq(
+    report_type: str,
+    workspace_name: str,
+    all_chunks: List[Dict],
+    custom_instructions: Optional[str] = None,
+) -> str:
+    """MetIQ-backed report generation."""
+    context = _build_context(all_chunks[:30])
+
+    REPORT_PROMPTS = {
+        "executive_summary": "Generate a professional Executive Summary with Overview, Key Findings, Strategic Implications, Recommended Actions, Risks & Mitigations, and Key Metrics. Cite sources as **[Source: Doc Name]**.",
+        "action_items": "Extract all action items and next steps, grouped by High / Medium / Low priority. Cite sources as **[Source: Doc Name]**.",
+        "risk_analysis": "Perform a comprehensive risk analysis: Risk Register table, Top 5 Critical Risks, Dependency Map, and Recommendations. Cite sources as **[Source: Doc Name]**.",
+        "meeting_prep": "Create a Meeting Preparation Brief: Context, Key Topics, Open Issues, Data Points, Stakeholder Positions, Suggested Agenda, and Pre-Meeting Checklist.",
+        "faq": "Generate 15-25 FAQ Q&A pairs organised into logical categories. Cite sources as **[Source: Doc Name]**.",
+        "technical_deep_dive": "Create a Technical Deep Dive: Architecture Overview, Component Breakdown, Technical Specifications, Integration Points, Data Flow, Known Issues, and Implementation Notes. Cite with **[Source: Doc Name]**.",
+    }
+
+    task = REPORT_PROMPTS.get(report_type, REPORT_PROMPTS["executive_summary"])
+    prompt = (
+        f"{SYSTEM_PROMPT}\n\n"
+        f"Workspace: {workspace_name}\n\n"
+        f"<documents>\n{context}\n</documents>\n\n"
+        f"{task}"
+    )
+    if custom_instructions:
+        prompt += f"\n\nAdditional instructions: {custom_instructions}"
+    return await asyncio.to_thread(_call_metiq, prompt)
+
+
 async def chat(
     query: str,
     workspace_name: str,
     chunks: List[Dict],
     history: List[Dict[str, str]],
 ) -> Dict[str, Any]:
-    """Core RAG chat function with Claude prompt caching."""
+    """Core RAG chat — routes to Anthropic or MetIQ based on AI_PROVIDER setting."""
+    if settings.AI_PROVIDER == "metiq":
+        return await _chat_metiq(query, workspace_name, chunks, history)
+
     client = _get_client()
 
     context = _build_context(chunks)
@@ -138,6 +248,9 @@ async def chat(
 
 async def generate_quick_summary(text: str, doc_name: str) -> str:
     """Generate a brief document summary for the document card."""
+    if settings.AI_PROVIDER == "metiq":
+        return await _generate_quick_summary_metiq(text, doc_name)
+
     client = _get_client()
     response = client.messages.create(
         model=settings.AI_MODEL,
@@ -157,6 +270,9 @@ async def generate_report(
     custom_instructions: Optional[str] = None,
 ) -> str:
     """Generate a structured report from workspace documents."""
+    if settings.AI_PROVIDER == "metiq":
+        return await _generate_report_metiq(report_type, workspace_name, all_chunks, custom_instructions)
+
     client = _get_client()
 
     context = _build_context(all_chunks[:30])  # Top 30 most relevant chunks
